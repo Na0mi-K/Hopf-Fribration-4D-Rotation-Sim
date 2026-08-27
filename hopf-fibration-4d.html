@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hopf Fibration — 4D Rotation Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #060810;
+    --bg2: #0b0f1d;
+    --panel: rgba(14, 18, 32, 0.72);
+    --panel-border: rgba(140, 160, 255, 0.16);
+    --ink: #e7ebf7;
+    --ink-dim: #8891ad;
+    --accent: #7c9bff;
+    --accent-soft: rgba(124, 155, 255, 0.35);
+    --magenta: #ff6fa8;
+  }
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+    background: radial-gradient(120% 140% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--ink);
+  }
+  #canvas-wrap{ position: fixed; inset: 0; }
+  canvas{ display:block; width:100%; height:100%; cursor: grab; }
+  canvas:active{ cursor: grabbing; }
+
+  .veil{
+    position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(60% 50% at 50% 45%, transparent 0%, rgba(6,8,16,0.55) 100%);
+  }
+
+  .title-block{
+    position: fixed; top: 28px; left: 32px; max-width: 420px;
+    pointer-events: none;
+  }
+  .eyebrow{
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin: 0 0 8px 0;
+  }
+  h1{
+    font-family: 'Fraunces', serif; font-weight: 600; font-style: italic;
+    font-size: 28px; line-height: 1.05; margin: 0 0 10px 0; color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .desc{
+    font-size: 12.5px; line-height: 1.55; color: var(--ink-dim); margin: 0;
+  }
+  .desc b{ color: var(--ink); font-weight: 500; }
+
+  .panel{
+    position: fixed; bottom: 24px; right: 24px; width: 296px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    padding: 18px 18px 16px 18px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .panel h2{
+    font-family: 'Fraunces', serif; font-style: italic; font-weight: 600;
+    font-size: 15px; margin: 0 0 4px 0; color: var(--ink);
+  }
+  .panel .sub{ font-size: 10.5px; color: var(--ink-dim); margin: 0 0 14px 0; }
+
+  .row{ margin-bottom: 12px; }
+  .row:last-child{ margin-bottom: 0; }
+  .row-label{
+    display:flex; justify-content: space-between; align-items: baseline;
+    font-size: 10.5px; color: var(--ink-dim); margin-bottom: 5px;
+    letter-spacing: 0.02em;
+  }
+  .row-label span.val{ color: var(--accent); font-weight: 600; }
+
+  input[type=range]{
+    -webkit-appearance: none; width: 100%; height: 3px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--fill,50%), rgba(255,255,255,0.12) var(--fill,50%));
+    outline: none; margin: 0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--ink); border: 2px solid var(--accent);
+    cursor: pointer; margin-top: -5px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--ink); border: 2px solid var(--accent); cursor: pointer;
+  }
+  input[type=range]::-moz-range-track{ height:3px; border-radius:2px; background: rgba(255,255,255,0.12); }
+
+  .divider{ height:1px; background: var(--panel-border); margin: 14px 0; }
+
+  .btn-row{ display:flex; gap: 8px; }
+  button{
+    flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.03em;
+    background: rgba(124,155,255,0.08); color: var(--ink);
+    border: 1px solid var(--panel-border); border-radius: 8px;
+    padding: 8px 6px; cursor: pointer; transition: all 0.15s ease;
+    text-transform: uppercase;
+  }
+  button:hover{ background: rgba(124,155,255,0.18); border-color: var(--accent-soft); color: #fff; }
+  button.active{ background: rgba(124,155,255,0.28); border-color: var(--accent); color: #fff; }
+
+  .toggle-wrap{ display:flex; align-items:center; justify-content: space-between; }
+  .toggle-label{ font-size: 10.5px; color: var(--ink-dim); }
+  .toggle{
+    position: relative; width: 34px; height: 18px; border-radius: 10px;
+    background: rgba(255,255,255,0.12); cursor: pointer; flex-shrink: 0;
+    transition: background 0.15s ease;
+  }
+  .toggle.on{ background: var(--accent); }
+  .toggle .knob{
+    position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%;
+    background:#fff; transition: left 0.15s ease;
+  }
+  .toggle.on .knob{ left: 18px; }
+
+  .legend{
+    position: fixed; bottom: 24px; left: 24px;
+    font-size: 10px; color: var(--ink-dim); line-height: 1.6;
+    max-width: 220px; letter-spacing: 0.01em;
+  }
+  .legend .hue-strip{
+    width: 100%; height: 5px; border-radius: 3px; margin: 6px 0 8px 0;
+    background: linear-gradient(90deg, hsl(0,80%,62%), hsl(60,80%,62%), hsl(120,80%,58%), hsl(180,80%,58%), hsl(240,80%,64%), hsl(300,80%,62%), hsl(360,80%,62%));
+  }
+
+  @media (max-width: 720px){
+    .title-block{ max-width: 260px; top: 18px; left: 18px; }
+    h1{ font-size: 20px; }
+    .desc{ display: none; }
+    .panel{ width: calc(100% - 32px); right: 16px; bottom: 16px; }
+    .legend{ display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="veil"></div>
+
+<div class="title-block">
+  <p class="eyebrow">S³ → S² · fiber bundle</p>
+  <h1>Hopf Fibration</h1>
+  <p class="desc">Each curve is one <b>fiber</b> — a circle in S³ whose points all map to a single point on S². Stereographic projection unfolds them into linked <b>Villarceau circles</b>. Drag to orbit; the 4D rotation below swirls the nesting without ever letting fibers cross.</p>
+</div>
+
+<div class="legend">
+  <div>latitude on S² → hue</div>
+  <div class="hue-strip"></div>
+  <div>drag canvas: 3D view · scroll: zoom</div>
+</div>
+
+<div class="panel">
+  <h2>4D rotation</h2>
+  <p class="sub">unitary mix of (z₀, z₁) before projection</p>
+
+  <div class="row">
+    <div class="row-label"><span>swirl speed</span><span class="val" id="val-speed">0.35</span></div>
+    <input type="range" id="speed" min="-1.5" max="1.5" step="0.01" value="0.35">
+  </div>
+  <div class="row">
+    <div class="row-label"><span>mix angle θ</span><span class="val" id="val-mix">0°</span></div>
+    <input type="range" id="mix" min="0" max="360" step="0.5" value="0">
+  </div>
+  <div class="row">
+    <div class="row-label"><span>phase α (z₀)</span><span class="val" id="val-ph1">0°</span></div>
+    <input type="range" id="ph1" min="0" max="360" step="0.5" value="0">
+  </div>
+  <div class="row">
+    <div class="row-label"><span>phase β (z₁)</span><span class="val" id="val-ph2">0°</span></div>
+    <input type="range" id="ph2" min="0" max="360" step="0.5" value="0">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <div class="row-label"><span>nested tori</span><span class="val" id="val-tori">9</span></div>
+    <input type="range" id="numTori" min="3" max="16" step="1" value="9">
+  </div>
+  <div class="row">
+    <div class="row-label"><span>fibers / torus</span><span class="val" id="val-fibers">10</span></div>
+    <input type="range" id="numFibers" min="3" max="20" step="1" value="10">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row toggle-wrap">
+    <span class="toggle-label">auto-swirl</span>
+    <div class="toggle on" id="toggle-auto"><div class="knob"></div></div>
+  </div>
+  <div class="row" style="margin-top:12px;">
+    <div class="btn-row">
+      <button id="btn-clifford">Clifford torus</button>
+      <button id="btn-reset">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  // ---------- renderer / scene / camera ----------
+  const wrap = document.getElementById('canvas-wrap');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x060810, 0.028);
+
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+
+  function resize(){
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- manual orbit camera ----------  #programme de NaomiK , FluoroPolymers™
+  let camDist = 15, camAz = 0.7, camPolar = 1.15;
+  let dragging = false, lastX = 0, lastY = 0;
+
+  function updateCamera(){
+    const p = Math.max(0.12, Math.min(Math.PI - 0.12, camPolar));
+    camera.position.set(
+      camDist * Math.sin(p) * Math.sin(camAz),
+      camDist * Math.cos(p),
+      camDist * Math.sin(p) * Math.cos(camAz)
+    );
+    camera.lookAt(0, 0, 0);
+  }
+
+  renderer.domElement.addEventListener('pointerdown', (e) => {
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+  });
+  window.addEventListener('pointerup', () => dragging = false);
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    camAz += dx * 0.0055;
+    camPolar -= dy * 0.0055;
+  });
+  renderer.domElement.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    camDist *= (1 + e.deltaY * 0.0009);
+    camDist = Math.max(5, Math.min(60, camDist));
+  }, { passive: false });
+
+  // ---------- params ---------- #programme de NaomiK , FluoroPolymers™
+  const params = {
+    speed: 0.35,
+    mix: 0,        // degrees, manual offset
+    ph1: 0,
+    ph2: 0,
+    numTori: 9,
+    numFibers: 10,
+    autoSwirl: true
+  };
+  const SEGS = 72;         // points per fiber circle
+  const LAT_MARGIN = 0.30; // keep away from poles (radians)
+  const MAX_R = 7.5;       // soft clamp radius after projection
+
+  let autoMix = 0, autoPh1 = 0, autoPh2 = 0;
+
+  // ---------- geometry pool ---------- #programme de NaomiK , FluoroPolymers™
+  let lines = []; // { mesh, lat, phi0 }
+
+  function disposeLines(){
+    for (const l of lines){
+      scene.remove(l.mesh);
+      l.mesh.geometry.dispose();
+      l.mesh.material.dispose();
+    }
+    lines = [];
+  }
+
+  function buildLines(){
+    disposeLines();
+    const nT = params.numTori, nF = params.numFibers;
+    for (let i = 0; i < nT; i++){
+      const u = nT === 1 ? 0.5 : i / (nT - 1);
+      const lat = LAT_MARGIN + u * (Math.PI - 2 * LAT_MARGIN); // theta_i in (margin, pi-margin)
+      for (let j = 0; j < nF; j++){
+        const phi0 = (j / nF) * Math.PI * 2;
+        const geo = new THREE.BufferGeometry();
+        const positions = new Float32Array((SEGS + 1) * 3);
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mat = new THREE.LineBasicMaterial({
+          color: 0xffffff, transparent: true, opacity: 0.85, linewidth: 1
+        });
+        const mesh = new THREE.Line(geo, mat);
+        scene.add(mesh);
+        lines.push({ mesh, lat, phi0, u });
+      }
+    }
+  }
+
+  // ---------- math: fiber sampling + 4D rotation + stereographic projection ---------- #programme de NaomiK , FluoroPolymers™
+  // Fiber over base point (lat, phi0) on S^2, parametrized by t in [0, 2pi):
+  //   z0(t) = cos(lat/2) * e^{i (phi0/2 + t)}
+  //   z1(t) = sin(lat/2) * e^{i (-phi0/2 + t)}
+  // Apply unitary mix U in U(2):
+  //   z0' = a z0 + b z1,  z1' = c z0 + d z1
+  //   a = cos(mix) e^{i ph1},  b = -sin(mix) e^{i ph2}
+  //   c = sin(mix) e^{-i ph2}, d = cos(mix) e^{-i ph1}
+  // 4-vector (w, x1, x2, x3) = (Re z0', Im z0', Re z1', Im z1')
+  // Stereographic projection: (x,y,z) = 1/(1-w) * (x1,x2,x3), soft-clamped.
+
+  const tmp = new THREE.Vector3();
+
+  function project(lat, phi0, t, mix, ca, sa, cb, sb, out){
+    const cl = Math.cos(lat / 2), sl = Math.sin(lat / 2);
+    const a0 = phi0 / 2 + t, a1 = -phi0 / 2 + t;
+    const z0re = cl * Math.cos(a0), z0im = cl * Math.sin(a0);
+    const z1re = sl * Math.cos(a1), z1im = sl * Math.sin(a1);
+
+    const cm = Math.cos(mix), sm = Math.sin(mix);
+    // a = cm * e^{i*ph1} ; b = -sm * e^{i*ph2}
+    const are = cm * ca, aim = cm * sa;
+    const bre = -sm * cb, bim = -sm * sb;
+    const cre = sm * cb, cim = -sm * sb;
+    const dre = cm * ca, dim = -cm * sa;
+
+    // z0' = a*z0 + b*z1  (complex mult)
+    const w_re = (are * z0re - aim * z0im) + (bre * z1re - bim * z1im);
+    const w_im = (are * z0im + aim * z0re) + (bre * z1im + bim * z1re);
+    // z1' = c*z0 + d*z1
+    const x1_re = (cre * z0re - cim * z0im) + (dre * z1re - dim * z1im);
+    const x1_im = (cre * z0im + cim * z0re) + (dre * z1im + dim * z1re);
+
+    const w = w_re;
+    let denom = 1 - w;
+    const sign = denom < 0 ? -1 : 1;
+    if (Math.abs(denom) < 0.06) denom = 0.06 * sign;
+
+    let x = x1_re / denom, y = x1_im / denom, z = w_im / denom;
+    const len = Math.sqrt(x * x + y * y + z * z);
+    if (len > 0.0001){
+      const scale = MAX_R * Math.tanh(len / MAX_R) / len;
+      x *= scale; y *= scale; z *= scale;
+    }
+    out.set(x, y, z);
+  }
+
+  function updateGeometry(){
+    const mixRad = ((params.mix + autoMix) % 360) * Math.PI / 180;
+    const ph1Rad = ((params.ph1 + autoPh1) % 360) * Math.PI / 180;
+    const ph2Rad = ((params.ph2 + autoPh2) % 360) * Math.PI / 180;
+    const ca = Math.cos(ph1Rad), sa = Math.sin(ph1Rad);
+    const cb = Math.cos(ph2Rad), sb = Math.sin(ph2Rad);
+    const hueShift = ((params.mix + autoMix) % 360) / 360;
+
+    for (const l of lines){
+      const pos = l.mesh.geometry.attributes.position.array;
+      for (let k = 0; k <= SEGS; k++){
+        const t = (k / SEGS) * Math.PI * 2;
+        project(l.lat, l.phi0, t, mixRad, ca, sa, cb, sb, tmp);
+        pos[k * 3] = tmp.x; pos[k * 3 + 1] = tmp.y; pos[k * 3 + 2] = tmp.z;
+      }
+      l.mesh.geometry.attributes.position.needsUpdate = true;
+      l.mesh.geometry.computeBoundingSphere();
+
+      const hue = (l.u * 0.82 + hueShift) % 1;
+      l.mesh.material.color.setHSL(hue < 0 ? hue + 1 : hue, 0.72, 0.60);
+    }
+  }
+
+  // ---------- UI wiring ---------- #programme de NaomiK , FluoroPolymers™
+  function fillPct(input){
+    const min = +input.min, max = +input.max, v = +input.value;
+    input.style.setProperty('--fill', ((v - min) / (max - min) * 100) + '%');
+  }
+
+  function bindSlider(id, valId, fmt, onChange){
+    const el = document.getElementById(id);
+    const valEl = document.getElementById(valId);
+    fillPct(el);
+    el.addEventListener('input', () => {
+      const v = +el.value;
+      onChange(v);
+      valEl.textContent = fmt(v);
+      fillPct(el);
+    });
+    return el;
+  }
+
+  bindSlider('speed', 'val-speed', v => v.toFixed(2), v => params.speed = v);
+  bindSlider('mix', 'val-mix', v => Math.round(v) + '°', v => params.mix = v);
+  bindSlider('ph1', 'val-ph1', v => Math.round(v) + '°', v => params.ph1 = v);
+  bindSlider('ph2', 'val-ph2', v => Math.round(v) + '°', v => params.ph2 = v);
+  bindSlider('numTori', 'val-tori', v => Math.round(v), v => { params.numTori = Math.round(v); buildLines(); });
+  bindSlider('numFibers', 'val-fibers', v => Math.round(v), v => { params.numFibers = Math.round(v); buildLines(); });
+
+  const toggleAuto = document.getElementById('toggle-auto');
+  toggleAuto.addEventListener('click', () => {
+    params.autoSwirl = !params.autoSwirl;
+    toggleAuto.classList.toggle('on', params.autoSwirl);
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    camDist = 15; camAz = 0.7; camPolar = 1.15;
+    autoMix = 0; autoPh1 = 0; autoPh2 = 0;
+    ['speed','mix','ph1','ph2'].forEach(id => {
+      const defaults = { speed: 0.35, mix: 0, ph1: 0, ph2: 0 };
+      const el = document.getElementById(id);
+      el.value = defaults[id];
+      el.dispatchEvent(new Event('input'));
+    });
+  });
+
+  document.getElementById('btn-clifford').addEventListener('click', () => {
+    document.getElementById('numTori').value = 1;
+    document.getElementById('numTori').dispatchEvent(new Event('input'));
+    document.getElementById('numFibers').value = 18;
+    document.getElementById('numFibers').dispatchEvent(new Event('input'));
+  });
+
+  // ---------- boot ----------
+  resize();
+  updateCamera();
+  buildLines();
+
+  let last = performance.now();
+  function animate(now){
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+
+    if (params.autoSwirl){
+      autoMix = (autoMix + params.speed * dt * 40) % 360;
+      autoPh1 = (autoPh1 + params.speed * dt * 12) % 360;
+      autoPh2 = (autoPh2 - params.speed * dt * 8) % 360;
+    }
+
+    updateGeometry();
+    updateCamera();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
